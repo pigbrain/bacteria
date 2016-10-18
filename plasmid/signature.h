@@ -74,11 +74,15 @@ typedef struct
 } SignatureValue;
 
 
-static MethodIdTable methodIdTable;
+extern MethodIdTable methodIdTable;
 
 jvmtiError initMethodIdTable(JNIEnv* jniEnv);
 
 jvmtiError findMethodId(JNIEnv* jniEnv, jchar* className, jchar* methodSignature, jchar* methodName, jmethodID* methodId);
+
+jvmtiError getObjectSignature(jvmtiEnv *jvmtiEnv, JNIEnv* jniEnv, jobject object, char** signature);
+
+jvmtiError getClassSignature(jvmtiEnv *jvmtiEnv, jmethodID method, char** signature);
 
 jmethodID getToStringMethodIdOfString(JNIEnv* jniEnv);
 

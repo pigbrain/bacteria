@@ -5,15 +5,15 @@
 #include "common.h"
 #include "signature.h"
 
-jvmtiError GetFrameCount(jvmtiEnv *jvmtiEnv, jthread thread, jint* frameCount);
+jvmtiError getFrameCount(jvmtiEnv *jvmtiEnv, jthread thread, jint* frameCount);
 
-jvmtiError GetStackTrace(jvmtiEnv *jvmtiEnv, jthread thread, jvmtiFrameInfo* frameInfo, jint maxFrameCount, jint* frameCount); 
+jvmtiError getStackTrace(jvmtiEnv *jvmtiEnv, jthread thread, jvmtiFrameInfo* frameInfo, jint maxFrameCount, jint* frameCount); 
 
-jvmtiError GetMethodInfo(jvmtiEnv *jvmtiEnv, jthread thread, jvmtiFrameInfo* jvmtiFrame, char **methodName, char **signature);
+jvmtiError getMethodInfo(jvmtiEnv *jvmtiEnv, jthread thread, jvmtiFrameInfo* jvmtiFrame, char **methodName, char **signature);
 				
-jvmtiError GetMethodArgumentCount(jvmtiEnv *jvmtiEnv, jmethodID method, jint* argumentCount);				
+jvmtiError getMethodArgumentCount(jvmtiEnv *jvmtiEnv, jmethodID method, jint* argumentCount);				
 				
-jvmtiError GetLineNumberTable(jvmtiEnv* jvmtiEnv, jvmtiFrameInfo* jvmtiFrame, jvmtiLineNumberEntry** lineNumberTableEntry, jint** lineNumberTableSize );
+jvmtiError getLineNumberTable(jvmtiEnv* jvmtiEnv, jvmtiFrameInfo* jvmtiFrame, jvmtiLineNumberEntry** lineNumberTableEntry, jint** lineNumberTableSize );
 
 	
 #endif

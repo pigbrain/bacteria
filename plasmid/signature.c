@@ -1,6 +1,7 @@
 
 #include "signature.h"
 
+MethodIdTable methodIdTable;
 
 jvmtiError initMethodIdTable(JNIEnv* jniEnv)
 {
@@ -24,6 +25,27 @@ jvmtiError findMethodId(JNIEnv* jniEnv, jchar* className, jchar* methodSignature
 	*methodId = (*jniEnv)->GetMethodID(jniEnv, clazz, methodName, methodSignature);
 	
 	return JVMTI_ERROR_NONE;
+}
+
+jvmtiError getObjectSignature(jvmtiEnv *jvmtiEnv, JNIEnv* jniEnv, jobject object, char** signature) 
+{
+	jclass clazz = (*jniEnv)->GetObjectClass(jniEnv, object);
+    
+	return (*jvmtiEnv)->GetClassSignature(jvmtiEnv, clazz, signature, NULL);
+}
+
+jvmtiError getClassSignature(jvmtiEnv *jvmtiEnv, jmethodID method, char** signature)
+{
+	jvmtiError error;
+	jclass declaringClass;
+	
+	error = (*jvmtiEnv)->GetMethodDeclaringClass(jvmtiEnv, method, &declaringClass);
+	if (error != JVMTI_ERROR_NONE) 
+	{
+		return error;
+	}
+	
+	return (*jvmtiEnv)->GetClassSignature(jvmtiEnv, declaringClass, signature, NULL);
 }
 
 jmethodID getToStringMethodIdOfString(JNIEnv* jniEnv)

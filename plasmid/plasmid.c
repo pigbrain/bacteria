@@ -4,12 +4,12 @@
 
 jobject last_exception;
  
-jvmtiError GetFrameCount(jvmtiEnv *jvmtiEnv, jthread thread, jint* frameCount)
+jvmtiError getFrameCount(jvmtiEnv *jvmtiEnv, jthread thread, jint* frameCount)
 {
 	return (*jvmti)->GetFrameCount(jvmtiEnv, thread, frameCount);
 }
 
-jvmtiError GetStackTrace(jvmtiEnv *jvmtiEnv, jthread thread, jvmtiFrameInfo* frameInfo, int maxFrameCount, jint* frameCount)
+jvmtiError getStackTrace(jvmtiEnv *jvmtiEnv, jthread thread, jvmtiFrameInfo* frameInfo, int maxFrameCount, jint* frameCount)
 {
 	if (jvmtiEnv == NULL || frameInfo == NULL || frameCount == NULL) 
 	{
@@ -27,7 +27,7 @@ jvmtiError GetStackTrace(jvmtiEnv *jvmtiEnv, jthread thread, jvmtiFrameInfo* fra
 	return (*jvmti)->GetStackTrace(jvmtiEnv, thread, startDepth, maxFrameCount, frameInfo, frameCount);
 }
 
-jvmtiError GetMethodInfo(jvmtiEnv *jvmtiEnv, jthread thread, jvmtiFrameInfo* jvmtiFrame, char **methodName, char **signature) 
+jvmtiError getMethodInfo(jvmtiEnv *jvmtiEnv, jthread thread, jvmtiFrameInfo* jvmtiFrame, char **methodName, char **signature) 
 {
 	if (jvmtiEnv == NULL) 
 	{
@@ -37,7 +37,7 @@ jvmtiError GetMethodInfo(jvmtiEnv *jvmtiEnv, jthread thread, jvmtiFrameInfo* jvm
 	return (*jvmti)->GetMethodName(jvmti, (*jvmtiFrame).method, methodName, signature, NULL);
 }
 
-jvmtiError GetMethodArgumentCount(jvmtiEnv *jvmtiEnv, jmethodID method, jint* argumentCount)
+jvmtiError getMethodArgumentCount(jvmtiEnv *jvmtiEnv, jmethodID method, jint* argumentCount)
 {
 	if (jvmtiEnv == NULL) 
 	{
@@ -47,7 +47,7 @@ jvmtiError GetMethodArgumentCount(jvmtiEnv *jvmtiEnv, jmethodID method, jint* ar
 	return (*jvmti)->GetArgumentsSize(jvmti, method, argumentCount);
 }
 
-jvmtiError GetLineNumberTable(jvmtiEnv* jvmtiEnv, jvmtiFrameInfo* frameInfo, jvmtiLineNumberEntry** lineNumberTableEntry, jint** lineNumberTableSize)
+jvmtiError getLineNumberTable(jvmtiEnv* jvmtiEnv, jvmtiFrameInfo* frameInfo, jvmtiLineNumberEntry** lineNumberTableEntry, jint** lineNumberTableSize)
 {
 	if (jvmtiEnv == NULL || frameInfo == NULL) 
 	{
@@ -87,7 +87,16 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 							jmethodID catchMethod, 
 							jlocation catchLocation)
 {
-	PDEBUG("cb_Exception (exception=%p) / %d\n", exception, location);
+	char* exceptionSignature;
+	if (getObjectSignature(jvmtiEnv, jniEnv, exception, &exceptionSignature) != JVMTI_ERROR_NONE) 
+	{
+		PDEBUG("cb_Exception (exception=%p)\n", exception);
+		return;
+	}
+	
+	PDEBUG("cb_Exception (exception=%p) / %s\n", exception, exceptionSignature);
+	SAFE_FREE(exceptionSignature);
+	
 	
 	/*
 		typedef struct {
@@ -98,7 +107,7 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 	jvmtiFrameInfo frameInfo[STACK_FRAME_MAX_COUNT];
 	jint frameCount = 0;
 	
-	if (GetStackTrace(jvmtiEnv, thread, frameInfo, STACK_FRAME_MAX_COUNT, &frameCount) != JVMTI_ERROR_NONE) 
+	if (getStackTrace(jvmtiEnv, thread, frameInfo, STACK_FRAME_MAX_COUNT, &frameCount) != JVMTI_ERROR_NONE) 
 	{
 		return;
 	}
@@ -114,18 +123,31 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 		char* methodName = NULL;
 		char* signature = NULL;
 		
-		if (GetMethodInfo(jvmtiEnv, thread, &frameInfo[index], &methodName, &signature) != JVMTI_ERROR_NONE)
+		if (getMethodInfo(jvmtiEnv, thread, &frameInfo[index], &methodName, &signature) != JVMTI_ERROR_NONE)
 		{
+			SAFE_FREE(methodName);
+			SAFE_FREE(signature);
 			continue;
 		}
 		
-		PDEBUG("\t\t * Executing method: %s(location : %d) signature(%s)\n", methodName, frameInfo[index].location, signature);
 		
+		char* classSignature = NULL;
+		if (getClassSignature(jvmtiEnv, frameInfo[index].method, &classSignature) != JVMTI_ERROR_NONE)
+		{			
+			SAFE_FREE(methodName);
+			SAFE_FREE(signature);
+			continue;
+		}
+		
+		
+		PDEBUG("\t\t * Executing method: %s in class %s(location : %d) signature(%s)\n", methodName, classSignature, frameInfo[index].location, signature);
+		
+		SAFE_FREE(classSignature);
 		
 		jint lineNumberTableSize;
 		jvmtiLineNumberEntry* lineNumberTableEntry;
 		
-		if (GetLineNumberTable(jvmtiEnv, &frameInfo[index], &lineNumberTableSize, &lineNumberTableEntry) != JVMTI_ERROR_NONE)
+		if (getLineNumberTable(jvmtiEnv, &frameInfo[index], &lineNumberTableSize, &lineNumberTableEntry) != JVMTI_ERROR_NONE)
 		{
 			continue;
 		}
@@ -145,7 +167,7 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 		PDEBUG("\t\t\t\t java code line number(%d)\n", codeLineNumber);
 		
 		jint methodArgumentCount = 0;
-		if (GetMethodArgumentCount(jvmtiEnv, frameInfo[index].method, &methodArgumentCount) == JVMTI_ERROR_NONE)
+		if (getMethodArgumentCount(jvmtiEnv, frameInfo[index].method, &methodArgumentCount) == JVMTI_ERROR_NONE)
 		{
 			PDEBUG("\t\t\t\t argumentCount(%d)\n", methodArgumentCount);
 		}
@@ -232,6 +254,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options, void *reserved)
 	capabilities.can_generate_exception_events = 1;
 	capabilities.can_access_local_variables = 1;
 	capabilities.can_get_line_numbers = 1;
+	capabilities.can_get_source_file_name = 1;
 	
 	jvmtiError error = (*jvmti)->AddCapabilities(jvmti, &capabilities);
 
