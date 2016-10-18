@@ -259,6 +259,11 @@ SignatureCode getReferenceSignatureCode(char** signature)
 		return _Double;
 	}
 	
+	while (**signature != SIGNATURE_REFERENCE_POSTFIX)
+	{
+		(*signature)++;
+	}
+	
 	return _undefined;
 }
 
@@ -376,7 +381,7 @@ jvmtiError getPrimitiveIntValue(jvmtiEnv *jvmtiEnv, JNIEnv* jniEnv, jthread thre
 	return JVMTI_ERROR_NONE;
 }
 
-void printSignatureValue(SignatureValue* signatureValue)
+void printSignatureValue(SignatureValue* signatureValue, Logger* logger)
 {
 	if (signatureValue == NULL) 
 	{
@@ -387,12 +392,15 @@ void printSignatureValue(SignatureValue* signatureValue)
 	{
 		case _String :
 			PDEBUG("\t\t\t\t\t get reference String value(%s)\n", (char *)signatureValue->value);
+			doRecord(logger, "\t\t -get reference String value(%s)\n", (char *)signatureValue->value);
 			break;
 		case _Integer :
 			PDEBUG("\t\t\t\t\t get reference Integer value(%d)\n", *((jint *)signatureValue->value));
+			doRecord(logger, "\t\t -get reference Integer value(%d)\n", *((jint *)signatureValue->value));
 			break;
 		case _Long :
 			PDEBUG("\t\t\t\t\t get reference Long value(%ld)\n", *((jlong *)signatureValue->value));
+			doRecord(logger, "\t\t -get reference Long value(%ld)\n", *((jlong *)signatureValue->value));
 			break;
 		case _Float :
 			break;
@@ -408,6 +416,7 @@ void printSignatureValue(SignatureValue* signatureValue)
 			break;
 		case _int :
 			PDEBUG("\t\t\t\t\t get primitive int value(%d)\n", *((jint *)signatureValue->value));
+			doRecord(logger, "\t\t -get primitive int value(%d)\n", *((jint *)signatureValue->value));
 			break;
 		case _long :
 			break;

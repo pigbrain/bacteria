@@ -4,6 +4,7 @@
 #define __SIGNATURE_H__
 
 #include "common.h"
+#include "logger.h"
  
 #define SIGNATURE_MAX_LENGTH        100
 
@@ -112,8 +113,8 @@ jvmtiError getReferenceLongValue(jvmtiEnv *jvmtiEnv, JNIEnv* jniEnv, jthread thr
 
 jvmtiError getPrimitiveIntValue(jvmtiEnv *jvmtiEnv, JNIEnv* jniEnv, jthread thread, jint slot, SignatureValue** signatureValue);
 
-void printSignatureValue(SignatureValue* signatureValue);
-
+void printSignatureValue(SignatureValue* signatureValue, Logger* logger);
+ 
 #endif
 
 

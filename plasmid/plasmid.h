@@ -4,6 +4,8 @@
 
 #include "common.h"
 #include "signature.h"
+#include "clazz.h"
+#include "logger.h"
 
 jvmtiError getFrameCount(jvmtiEnv *jvmtiEnv, jthread thread, jint* frameCount);
 

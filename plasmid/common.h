@@ -7,12 +7,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <fcntl.h>
+#include <unistd.h>
+#include <time.h>
 #include "jni.h"
 #include "jvmti.h" 
 
 
-#define STACK_FRAME_MAX_COUNT 10
+#define STACK_FRAME_MAX_COUNT 20
 
 #define _PDEBUG
 

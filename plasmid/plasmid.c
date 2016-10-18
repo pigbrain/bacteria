@@ -87,6 +87,13 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 							jmethodID catchMethod, 
 							jlocation catchLocation)
 {
+	if (!hasClassLoader(jvmtiEnv, method)) 
+	{
+		return;
+	}
+		
+		
+	
 	char* exceptionSignature;
 	if (getObjectSignature(jvmtiEnv, jniEnv, exception, &exceptionSignature) != JVMTI_ERROR_NONE) 
 	{
@@ -94,9 +101,13 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 		return;
 	}
 	
+	Logger* logger;
+	
+	startRecord(&logger, exceptionSignature);
+	
+	
 	PDEBUG("cb_Exception (exception=%p) / %s\n", exception, exceptionSignature);
 	SAFE_FREE(exceptionSignature);
-	
 	
 	/*
 		typedef struct {
@@ -109,6 +120,7 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 	
 	if (getStackTrace(jvmtiEnv, thread, frameInfo, STACK_FRAME_MAX_COUNT, &frameCount) != JVMTI_ERROR_NONE) 
 	{
+		endRecord(&logger);
 		return;
 	}
 	
@@ -142,13 +154,12 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 		
 		PDEBUG("\t\t * Executing method: %s in class %s(location : %d) signature(%s)\n", methodName, classSignature, frameInfo[index].location, signature);
 		
-		SAFE_FREE(classSignature);
-		
 		jint lineNumberTableSize;
 		jvmtiLineNumberEntry* lineNumberTableEntry;
 		
 		if (getLineNumberTable(jvmtiEnv, &frameInfo[index], &lineNumberTableSize, &lineNumberTableEntry) != JVMTI_ERROR_NONE)
 		{
+			SAFE_FREE(classSignature);
 			continue;
 		}
 		
@@ -165,14 +176,13 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 		}
 		
 		PDEBUG("\t\t\t\t java code line number(%d)\n", codeLineNumber);
+		doRecord(logger, "\t*execute method(%s) line(%d) in class(%s)\n", methodName, codeLineNumber, classSignature);
 		
 		jint methodArgumentCount = 0;
 		if (getMethodArgumentCount(jvmtiEnv, frameInfo[index].method, &methodArgumentCount) == JVMTI_ERROR_NONE)
 		{
 			PDEBUG("\t\t\t\t argumentCount(%d)\n", methodArgumentCount);
 		}
-		
-		
 			
 		SignatureCode* signatureCodes;
 		jint signatureCodeCount = 0;
@@ -182,7 +192,6 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 			PDEBUG("\t\t\t\t method argument signature\n");
 			for (index = 0; index < methodArgumentCount; index++)
 			{
-				
 				if (signatureCodes[index] == _undefined)
 				{
 					continue;
@@ -190,9 +199,14 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 				
 				SignatureValue* signatureValue;
 
-				getValue(jvmtiEnv, jniEnv, thread, index, signatureCodes[index], &signatureValue);
+				if (getValue(jvmtiEnv, jniEnv, thread, index, signatureCodes[index], &signatureValue) != JVMTI_ERROR_NONE)
+				{
+					SAFE_FREE(signatureValue->value);
+					SAFE_FREE(signatureValue);
+					continue;
+				}
 				
-				printSignatureValue(signatureValue);
+				printSignatureValue(signatureValue, logger);
 				
 				SAFE_FREE(signatureValue->value);
 				SAFE_FREE(signatureValue);
@@ -200,7 +214,7 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 			SAFE_FREE(signatureCodes);
 		}
 		
-		
+		SAFE_FREE(classSignature);
 		SAFE_FREE(lineNumberTableEntry);
 		
 		SAFE_FREE(methodName);
@@ -208,6 +222,8 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 	}
 
 	
+	endRecord(&logger);
+		
 	last_exception = exception;
 }
 
@@ -226,12 +242,12 @@ void JNICALL exceptionCatchCallBack (jvmtiEnv *jvmtiEnv,
 }
 
 
-
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options, void *reserved)
 {
-	PDEBUG("JVMTI Hello\n");
+	PDEBUG("JVMTI Hello [%s]\n", options);
 	
-
+	logLocation = options;
+	
 	jvmtiCapabilities capabilities;
 	jvmtiEventCallbacks callbacks;
 
