@@ -46,7 +46,8 @@ void doRecord(Logger* logger, char *format, ...)
 	va_end(ap);
 
 	fprintf(logger->file,"%s", log);
-    fflush(logger->file);
+	
+	fflush(logger->file);
 }
 
 void endRecord(Logger** logger)

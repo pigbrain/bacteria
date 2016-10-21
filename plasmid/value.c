@@ -12,7 +12,6 @@ jvmtiError initValues(Value** values, jint argumentCount, char* signature)
 	char* p = signature;
 	while (*p)
 	{
-
 		if (*p == SIGNATURE_START)
 		{
 			p++;
@@ -94,6 +93,13 @@ jvmtiError _parseSignature(Value* value, char** signature)
 		value->dataType = value->dataType == undefined ? primitive : value->dataType;
 		
 		_parsePrimitiveSignature(value, signature);
+	}
+	
+	if (isArray)
+	{
+		
+		value->getValue = _getReferenceObjectValue;
+		value->printValue = _printReferenceObjectValue;
 	}
 	
 	return JVMTI_ERROR_NONE;
@@ -208,7 +214,7 @@ jvmtiError _parseReferenceSignature(Value* value, char** signature)
 		KDEBUG("\t* SIGNATURE_reference object\n");
 		
 		value->getValue = _getReferenceObjectValue;
-		value->printValue = _printReferenceStringValue;
+		value->printValue = _printReferenceObjectValue;
 		
 		int index = 0;
 		char* k = p;
@@ -240,7 +246,7 @@ jvmtiError getValue(jvmtiEnv *jvmtiEnv, JNIEnv* jniEnv, jthread thread, jint fra
 	{
 		if (value[index].dataType == array) 
 		{
-			
+			_getReferenceObjectValue(jvmtiEnv, jniEnv, thread, frameDepth, index, &(value[index].data));
 		}
 		else
 		{
@@ -321,7 +327,7 @@ jvmtiError _getReferenceObjectValue(jvmtiEnv *jvmtiEnv, JNIEnv* jniEnv, jthread 
 	jmethodID toStringMethodId = (*jniEnv)->GetMethodID(jniEnv, clazz, "toString", "()Ljava/lang/String;"); 
 	jstring stringValue = (jstring)(*jniEnv)->CallObjectMethod(jniEnv, jObject, toStringMethodId);
 	
-	*data = (*jniEnv)->GetStringUTFChars(jniEnv, stringValue, frameDepth);
+	*data = (*jniEnv)->GetStringUTFChars(jniEnv, stringValue, 0);
 	
 	KDEBUG("\t\t* _getReferenceObjectValue[%s]\n", *data);
 	
