@@ -2,21 +2,25 @@
 
 #include "clazz.h"
 
-bool hasClassLoader(jvmtiEnv *jvmtiEnv, jmethodID method)
+jvmtiError getClass(jvmtiEnv *jvmtiEnv, jmethodID method, jclass* clazz)
+{
+	if (jvmtiEnv == NULL)
+	{
+		return JVMTI_ERROR_NULL_POINTER;
+	}
+	
+	return (*jvmtiEnv)->GetMethodDeclaringClass(jvmtiEnv, method, clazz);
+}
+
+bool hasClassLoader(jvmtiEnv *jvmtiEnv, jclass clazz, jmethodID method)
 {
 	if (jvmtiEnv == NULL)
 	{
 		return false;
 	}
 	
-	jclass declaringClass;
-	if ((*jvmtiEnv)->GetMethodDeclaringClass(jvmtiEnv, method, &declaringClass) != JVMTI_ERROR_NONE) 
-	{
-		return false;
-	}
-	
 	jobject* classLoader;
-	(*jvmtiEnv)->GetClassLoader(jvmtiEnv, declaringClass, &classLoader);
+	(*jvmtiEnv)->GetClassLoader(jvmtiEnv, clazz, &classLoader);
 	
 	return classLoader != NULL;
 }

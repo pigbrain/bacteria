@@ -5,7 +5,9 @@
 #include "common.h"
 
 
-bool hasClassLoader(jvmtiEnv *jvmtiEnv, jmethodID method);
+jvmtiError getClass(jvmtiEnv *jvmtiEnv, jmethodID method, jclass* clazz);
+
+bool hasClassLoader(jvmtiEnv *jvmtiEnv, jclass clazz, jmethodID method);
 
 #endif
 

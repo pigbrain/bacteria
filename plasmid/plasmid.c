@@ -13,7 +13,7 @@ jvmtiError getStackTrace(jvmtiEnv *jvmtiEnv, jthread thread, jvmtiFrameInfo* fra
 {
 	if (jvmtiEnv == NULL || frameInfo == NULL || frameCount == NULL) 
 	{
-		return JVMTI_ERROR_NULL_POINTER ;
+		return JVMTI_ERROR_NULL_POINTER;
 	}
 	
 	/*
@@ -27,36 +27,54 @@ jvmtiError getStackTrace(jvmtiEnv *jvmtiEnv, jthread thread, jvmtiFrameInfo* fra
 	return (*jvmti)->GetStackTrace(jvmtiEnv, thread, startDepth, maxFrameCount, frameInfo, frameCount);
 }
 
-jvmtiError getMethodInfo(jvmtiEnv *jvmtiEnv, jthread thread, jvmtiFrameInfo* jvmtiFrame, char **methodName, char **signature) 
+jvmtiError getMethodInfo(jvmtiEnv *jvmtiEnv, jthread thread, jmethodID method, char **methodName, char **signature) 
 {
 	if (jvmtiEnv == NULL) 
 	{
-		return JVMTI_ERROR_NULL_POINTER ;
+		return JVMTI_ERROR_NULL_POINTER;
 	}
 	
-	return (*jvmti)->GetMethodName(jvmti, (*jvmtiFrame).method, methodName, signature, NULL);
+	return (*jvmti)->GetMethodName(jvmti, method, methodName, signature, NULL);
 }
 
 jvmtiError getMethodArgumentCount(jvmtiEnv *jvmtiEnv, jmethodID method, jint* argumentCount)
 {
 	if (jvmtiEnv == NULL) 
 	{
-		return JVMTI_ERROR_NULL_POINTER ;
+		return JVMTI_ERROR_NULL_POINTER;
 	}
 	
 	return (*jvmti)->GetArgumentsSize(jvmti, method, argumentCount);
 }
 
-jvmtiError getLineNumberTable(jvmtiEnv* jvmtiEnv, jvmtiFrameInfo* frameInfo, jvmtiLineNumberEntry** lineNumberTableEntry, jint** lineNumberTableSize)
+jvmtiError getLineNumberTable(jvmtiEnv* jvmtiEnv, jmethodID method, jvmtiLineNumberEntry** lineNumberTableEntry, jint** lineNumberTableSize)
 {
-	if (jvmtiEnv == NULL || frameInfo == NULL) 
+	if (jvmtiEnv == NULL) 
 	{
-		return JVMTI_ERROR_NULL_POINTER ;
+		return JVMTI_ERROR_NULL_POINTER;
 	}
 	
-	return (*jvmti)->GetLineNumberTable(jvmtiEnv, (*frameInfo).method, lineNumberTableEntry, lineNumberTableSize);
+	return (*jvmti)->GetLineNumberTable(jvmtiEnv, method, lineNumberTableEntry, lineNumberTableSize);
 }
 
+jvmtiError getLineNumber(jvmtiLineNumberEntry* lineNumberTableEntry, jint lineNumberTableSize, jvmtiFrameInfo* jvmtiFrame, jint* codeLineNumber)
+{
+	if (lineNumberTableEntry == NULL || lineNumberTableSize <= 0 || jvmtiFrame == NULL || codeLineNumber == NULL)
+	{
+		return JVMTI_ERROR_NULL_POINTER;	
+	}
+	
+	jint index = 0;
+	for (index = 0; index < lineNumberTableSize; index++)
+	{
+		if ((*jvmtiFrame).location >= lineNumberTableEntry[index].start_location) 
+		{
+			*codeLineNumber = lineNumberTableEntry[index].line_number;
+		}
+	}
+	
+	return JVMTI_ERROR_NONE;
+}
 
 void JNICALL vmInitCallBack(jvmtiEnv *jvmtiEnv, JNIEnv *jniEnv, jthread thread) 
 {
@@ -87,13 +105,18 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 							jmethodID catchMethod, 
 							jlocation catchLocation)
 {
-	if (!hasClassLoader(jvmtiEnv, method)) 
+	
+	jclass clazz;
+	if (getClass(jvmtiEnv, method, &clazz) != JVMTI_ERROR_NONE) 
+	{
+		return;
+	}
+	
+	if (!hasClassLoader(jvmtiEnv, clazz, method)) 
 	{
 		return;
 	}
 		
-		
-	
 	char* exceptionSignature;
 	if (getObjectSignature(jvmtiEnv, jniEnv, exception, &exceptionSignature) != JVMTI_ERROR_NONE) 
 	{
@@ -124,18 +147,13 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 		return;
 	}
 	
-	jint index = 0;
-	for (index = 0; index < frameCount; index++)
-	{
-		PDEBUG("\t * frame location : %d\n", frameInfo[index].location);
-	}
-	
-	for (index = 0; index < frameCount; index++)
+	jint frameDepth = 0;
+	for (frameDepth = 0; frameDepth < frameCount; frameDepth++)
 	{
 		char* methodName = NULL;
 		char* signature = NULL;
 		
-		if (getMethodInfo(jvmtiEnv, thread, &frameInfo[index], &methodName, &signature) != JVMTI_ERROR_NONE)
+		if (getMethodInfo(jvmtiEnv, thread, frameInfo[frameDepth].method, &methodName, &signature) != JVMTI_ERROR_NONE)
 		{
 			SAFE_FREE(methodName);
 			SAFE_FREE(signature);
@@ -144,80 +162,64 @@ void JNICALL exceptionCallBack(jvmtiEnv *jvmtiEnv,
 		
 		
 		char* classSignature = NULL;
-		if (getClassSignature(jvmtiEnv, frameInfo[index].method, &classSignature) != JVMTI_ERROR_NONE)
+		if (getClassSignature(jvmtiEnv, frameInfo[frameDepth].method, &classSignature) != JVMTI_ERROR_NONE)
 		{			
 			SAFE_FREE(methodName);
 			SAFE_FREE(signature);
 			continue;
 		}
 		
-		
-		PDEBUG("\t\t * Executing method: %s in class %s(location : %d) signature(%s)\n", methodName, classSignature, frameInfo[index].location, signature);
+		PDEBUG("\t\t*Executing method: %s in class %s(location : %d) signature(%s)\n", methodName, classSignature, frameInfo[frameDepth].location, signature);
 		
 		jint lineNumberTableSize;
 		jvmtiLineNumberEntry* lineNumberTableEntry;
 		
-		if (getLineNumberTable(jvmtiEnv, &frameInfo[index], &lineNumberTableSize, &lineNumberTableEntry) != JVMTI_ERROR_NONE)
+		if (getLineNumberTable(jvmtiEnv, frameInfo[frameDepth].method, &lineNumberTableSize, &lineNumberTableEntry) != JVMTI_ERROR_NONE)
 		{
 			SAFE_FREE(classSignature);
 			continue;
 		}
 		
-		jint i = 0;
 		jint codeLineNumber = 0;
-		for (i = 0; i < lineNumberTableSize; i++)
+		if (getLineNumber(lineNumberTableEntry, lineNumberTableSize, &frameInfo[frameDepth], &codeLineNumber)== JVMTI_ERROR_NONE)
 		{
-			PDEBUG("\t\t\t lineNumber index(%d) %d to %d\n", i, lineNumberTableEntry[i].start_location, lineNumberTableEntry[i].line_number);
-		
-			if (frameInfo[index].location >= lineNumberTableEntry[i].start_location) 
-			{
-				codeLineNumber = lineNumberTableEntry[i].line_number;
-			}
+			PDEBUG("\t\t\t\t java code line number(%d)\n", codeLineNumber);
 		}
+
+		doRecord(logger, "\n\t*at method(%s:%d) in class(%s)\n", methodName, codeLineNumber, classSignature);
 		
-		PDEBUG("\t\t\t\t java code line number(%d)\n", codeLineNumber);
-		doRecord(logger, "\t*execute method(%s) line(%d) in class(%s)\n", methodName, codeLineNumber, classSignature);
+		SAFE_FREE(classSignature);
+		SAFE_FREE(methodName);
 		
 		jint methodArgumentCount = 0;
-		if (getMethodArgumentCount(jvmtiEnv, frameInfo[index].method, &methodArgumentCount) == JVMTI_ERROR_NONE)
+		if (getMethodArgumentCount(jvmtiEnv, frameInfo[frameDepth].method, &methodArgumentCount) == JVMTI_ERROR_NONE)
 		{
 			PDEBUG("\t\t\t\t argumentCount(%d)\n", methodArgumentCount);
 		}
-			
-		SignatureCode* signatureCodes;
-		jint signatureCodeCount = 0;
-		if (parseMethodSignature(signature, methodArgumentCount, &signatureCodes, &signatureCodeCount) == JVMTI_ERROR_NONE && signatureCodeCount > 0) 
-		{
-			jint index = 0;
-			PDEBUG("\t\t\t\t method argument signature\n");
-			for (index = 0; index < methodArgumentCount; index++)
-			{
-				if (signatureCodes[index] == _undefined)
-				{
-					continue;
-				}
-				
-				SignatureValue* signatureValue;
-
-				if (getValue(jvmtiEnv, jniEnv, thread, index, signatureCodes[index], &signatureValue) != JVMTI_ERROR_NONE)
-				{
-					SAFE_FREE(signatureValue->value);
-					SAFE_FREE(signatureValue);
-					continue;
-				}
-				
-				printSignatureValue(signatureValue, logger);
-				
-				SAFE_FREE(signatureValue->value);
-				SAFE_FREE(signatureValue);
-			}
-			SAFE_FREE(signatureCodes);
-		}
 		
-		SAFE_FREE(classSignature);
 		SAFE_FREE(lineNumberTableEntry);
 		
-		SAFE_FREE(methodName);
+		
+		Value* values;
+		initValues(&values, methodArgumentCount, signature);
+		KDEBUG("@ after init values argumentCount(%d)\n", methodArgumentCount);
+		
+		if (getValue(jvmtiEnv, jniEnv, thread, frameDepth, values, methodArgumentCount) != JVMTI_ERROR_NONE) 
+		{
+			destroyValues(values, methodArgumentCount);
+			SAFE_FREE(signature);
+			
+			continue;
+		}
+		
+		int index = 0;
+		for (index = 0; index < methodArgumentCount; index++)
+		{
+			values[index].printValue(logger, values[index].data);
+		}
+		
+		destroyValues(values, methodArgumentCount);
+		
 		SAFE_FREE(signature);
 	}
 
@@ -251,17 +253,9 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options, void *reserved)
 	jvmtiCapabilities capabilities;
 	jvmtiEventCallbacks callbacks;
 
-	/*
-		#define JNI_OK           0                 // success 
-		#define JNI_ERR          (-1)              // unknown error 
-		#define JNI_EDETACHED    (-2)              // thread detached from the VM
-		#define JNI_EVERSION     (-3)              // JNI version error
-		#define JNI_ENOMEM       (-4)              // not enough memory
-		#define JNI_EEXIST       (-5)              // VM already created
-		#define JNI_EINVAL       (-6)              // invalid arguments
-	*/
 	jint result = (*jvm)->GetEnv(jvm, (void **) &jvmti, JVMTI_VERSION);
-	if (result != JNI_OK) {
+	if (result != JNI_OK) 
+	{
 		PDEBUG("ERROR: Unable to access JVMTI!\n");
 		return JNI_ERR;
 	}
