@@ -31,5 +31,6 @@ dependencies {
 	compile('org.springframework.boot:spring-boot-starter-web')
 	compile('org.apache.tomcat.embed:tomcat-embed-jasper')
 	compile('javax.servlet:jstl:1.2')
+	compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.4'
 	testCompile('org.springframework.boot:spring-boot-starter-test')
 }
