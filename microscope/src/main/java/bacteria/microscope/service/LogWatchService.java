@@ -53,7 +53,7 @@ public class LogWatchService {
 			
 			File logDirectory = new File(logPath); 
 			for(File logFile : logDirectory.listFiles()) {
-				logList.add(ExceptionLog.of(logFile.toPath().toString()));
+				logList.add(ExceptionLog.of(logFile.getName(), logFile.toPath().toString()));
 			}
 			
 			watchService = FileSystems.getDefault().newWatchService();
@@ -95,7 +95,8 @@ public class LogWatchService {
 				
 				logger.debug("add element into logList[" + watchEvent.context() + "]");
 				 
-				logList.add(ExceptionLog.of(logPath + "/" + ((Path) watchEvent.context()).toString()));
+				String fileName = ((Path) watchEvent.context()).toString();
+				logList.add(ExceptionLog.of(fileName, logPath + "/" + fileName));
 			}
 		}
 		
@@ -119,7 +120,7 @@ public class LogWatchService {
 		
 		try {
 			String contents = new String(Files.readAllBytes(Paths.get(exceptoinLog.get().getFilePath())));
-			return contents;
+			return contents.replaceAll("\n", "<br>").replaceAll("\t", "<span style='padding-left:20px' />");
 		} catch (IOException e) {
 		}
 		
